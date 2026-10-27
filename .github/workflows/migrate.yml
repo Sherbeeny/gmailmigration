@@ -1,0 +1,53 @@
+name: IMAP Migration
+
+on:
+  workflow_dispatch: # Allows you to manually trigger it from the Actions tab
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Perl Dependencies and wget
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y -q \
+              wget \
+              libmail-imapclient-perl \
+              libio-socket-ssl-perl \
+              libencode-imaputf7-perl \
+              libfile-copy-recursive-perl \
+              libio-tee-perl \
+              libunicode-string-perl \
+              libsys-meminfo-perl \
+              libregexp-common-perl \
+              libdigest-hmac-perl \
+              libterm-readkey-perl \
+              libfile-tail-perl \
+              libreadonly-perl
+
+      - name: Download imapsync
+        run: |
+          wget -q https://raw.githubusercontent.com/imapsync/imapsync/master/imapsync -O imapsync
+          chmod +x imapsync
+
+      - name: Create Password Files from Secrets
+        run: |
+          echo "${{ secrets.SOURCE_PASS }}" > pass1.txt
+          echo "${{ secrets.DEST_PASS }}" > pass2.txt
+
+      - name: Run imapsync Migration
+        run: |
+          ./imapsync \
+            --host1 imap.gmail.com --port1 993 --ssl1 \
+            --user1 "${{ secrets.SOURCE_USER }}" --passfile1 pass1.txt \
+            --host2 imap.gmail.com --port2 993 --ssl2 \
+            --user2 "${{ secrets.DEST_USER }}" --passfile2 pass2.txt \
+            --prefix2 "${{ secrets.PREFIX2 }}/"
+
+      - name: Cleanup Passwords
+        if: always()
+        run: |
+          rm -f pass1.txt pass2.txt
